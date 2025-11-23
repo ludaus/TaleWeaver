@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projects  Project[] @relation("ProjectMembers")
+  ownedProjects Project[] @relation("ProjectOwner")
+  shareLinks StoryShareLink[] @relation("CreatedShareLinks")
+  globalMedia GlobalMedia[]
+  comments ReviewerComment[]
+}
+
+enum Role {
+  ADMIN
+  AUTHOR
+  EDITOR
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  owner       User     @relation("ProjectOwner", fields: [ownerId], references: [id])
+  ownerId     String
+  members     User[]   @relation("ProjectMembers")
+  storyVersions StoryVersion[]
+  media       ProjectMedia[]
+}
+
+model StoryVersion {
+  id            String   @id @default(cuid())
+  project       Project  @relation(fields: [projectId], references: [id])
+  projectId     String
+  name          String
+  description   String
+  baseVersion   StoryVersion? @relation("StoryVersionBase", fields: [baseVersionId], references: [id])
+  baseVersionId String?
+  forks         StoryVersion[] @relation("StoryVersionBase")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  nodes         StoryNode[]
+  links         StoryLink[]
+  scripts       Script[]
+  shareLinks    StoryShareLink[]
+}
+
+model StoryNode {
+  id          String   @id @default(cuid())
+  storyVersion StoryVersion @relation(fields: [storyVersionId], references: [id])
+  storyVersionId String
+  title       String
+  nodeType    NodeType
+  positionX   Int
+  positionY   Int
+  backgroundMedia GlobalMedia? @relation("NodeBackground", fields: [backgroundMediaId], references: [id])
+  backgroundMediaId String?
+  backgroundAudioMedia GlobalMedia? @relation("NodeBackgroundAudio", fields: [backgroundAudioMediaId], references: [id])
+  backgroundAudioMediaId String?
+  musicAudioMedia GlobalMedia? @relation("NodeMusicAudio", fields: [musicAudioMediaId], references: [id])
+  musicAudioMediaId String?
+  voiceOverAudioMedia GlobalMedia? @relation("NodeVoiceOver", fields: [voiceOverAudioMediaId], references: [id])
+  voiceOverAudioMediaId String?
+  textBlocks  Json
+  enterScript Script? @relation("NodeEnterScript", fields: [enterScriptId], references: [id])
+  enterScriptId String?
+  exitScript Script? @relation("NodeExitScript", fields: [exitScriptId], references: [id])
+  exitScriptId String?
+  outgoingLinks StoryLink[] @relation("SourceLinks")
+  incomingLinks StoryLink[] @relation("TargetLinks")
+  comments ReviewerComment[]
+}
+
+enum NodeType {
+  ROOT
+  DEFAULT
+}
+
+model StoryLink {
+  id          String   @id @default(cuid())
+  storyVersion StoryVersion @relation(fields: [storyVersionId], references: [id])
+  storyVersionId String
+  sourceNode   StoryNode @relation("SourceLinks", fields: [sourceNodeId], references: [id])
+  sourceNodeId String
+  targetNode   StoryNode @relation("TargetLinks", fields: [targetNodeId], references: [id])
+  targetNodeId String
+  label        String?
+  orderIndex   Int
+  conditionScript Script? @relation("LinkCondition", fields: [conditionScriptId], references: [id])
+  conditionScriptId String?
+  effectScript Script? @relation("LinkEffect", fields: [effectScriptId], references: [id])
+  effectScriptId String?
+}
+
+model GlobalMedia {
+  id               String   @id @default(cuid())
+  owner            User     @relation(fields: [ownerId], references: [id])
+  ownerId          String
+  type             MediaType
+  filePath         String
+  originalFilename String
+  mimeType         String
+  metadata         Json
+  projectNodesBackground StoryNode[] @relation("NodeBackground")
+  projectNodesBackgroundAudio StoryNode[] @relation("NodeBackgroundAudio")
+  projectNodesMusicAudio StoryNode[] @relation("NodeMusicAudio")
+  projectNodesVoiceOver StoryNode[] @relation("NodeVoiceOver")
+}
+
+model ProjectMedia {
+  id               String   @id @default(cuid())
+  project          Project  @relation(fields: [projectId], references: [id])
+  projectId        String
+  type             MediaType
+  filePath         String
+  originalFilename String
+  mimeType         String
+  metadata         Json
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+model ReviewerComment {
+  id          String   @id @default(cuid())
+  storyNode   StoryNode @relation(fields: [storyNodeId], references: [id])
+  storyNodeId String
+  reviewerName String
+  text        String
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+  userId      String?
+}
+
+model StoryShareLink {
+  id          String   @id @default(cuid())
+  storyVersion StoryVersion @relation(fields: [storyVersionId], references: [id])
+  storyVersionId String
+  type        ShareLinkType
+  token       String   @unique
+  createdAt   DateTime @default(now())
+  createdBy   User     @relation("CreatedShareLinks", fields: [createdByUserId], references: [id])
+  createdByUserId String
+}
+
+enum ShareLinkType {
+  VIEWER
+  REVIEW
+}
+
+model Script {
+  id          String   @id @default(cuid())
+  storyVersion StoryVersion @relation(fields: [storyVersionId], references: [id])
+  storyVersionId String
+  name        String
+  scope       ScriptScope
+  code        String
+  nodeEnter StoryNode[] @relation("NodeEnterScript")
+  nodeExit  StoryNode[] @relation("NodeExitScript")
+  linkConditions StoryLink[] @relation("LinkCondition")
+  linkEffects StoryLink[] @relation("LinkEffect")
+}
+
+enum ScriptScope {
+  GLOBAL
+  NODE
+  LINK
+}
