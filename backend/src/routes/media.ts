@@ -72,9 +72,16 @@ router.get(
 router.get(
   "/file/:filename",
   asyncHandler(async (req, res) => {
-    const filePath = path.join("..", "media", req.params.filename);
-    if (!fs.existsSync(filePath)) return res.status(404).end();
-    res.sendFile(path.resolve(filePath));
+    const mediaDir = path.resolve("..", "media");
+    const requestedPath = path.resolve(mediaDir, req.params.filename);
+
+    const isInsideMediaDir = requestedPath === mediaDir || requestedPath.startsWith(`${mediaDir}${path.sep}`);
+    if (!isInsideMediaDir || path.isAbsolute(req.params.filename) || req.params.filename.includes("..")) {
+      return res.status(400).json({ message: "Invalid filename" });
+    }
+
+    if (!fs.existsSync(requestedPath)) return res.status(404).end();
+    res.sendFile(requestedPath);
   })
 );
 

@@ -6,6 +6,8 @@ import { authenticate } from "../auth.js";
 
 const router = express.Router();
 
+router.use(authenticate);
+
 router.get(
   "/node/:nodeId",
   asyncHandler(async (req, res) => {
@@ -17,13 +19,11 @@ router.get(
 router.post(
   "/node/:nodeId",
   asyncHandler(async (req, res) => {
-    const { reviewerName, text, userId } = req.body;
-    const comment = await prisma.reviewerComment.create({ data: { storyNodeId: req.params.nodeId, reviewerName, text, userId } });
+    const { reviewerName, text } = req.body;
+    const comment = await prisma.reviewerComment.create({ data: { storyNodeId: req.params.nodeId, reviewerName, text, userId: req.user!.id } });
     res.status(201).json(comment);
   })
 );
-
-router.use(authenticate);
 
 router.delete(
   "/:commentId",
